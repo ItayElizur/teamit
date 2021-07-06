@@ -2,10 +2,12 @@ import os
 import pandas as pd
 import matplotlib.pyplot as plt
 import math
+from sklearn.metrics import classification_report
+from sklearn.model_selection import train_test_split
 
 CSV_FOLDERPATH = r'C:\Users\garre\Desktop\datathon\data'
 
-n_matches_to_analyze = 2_000
+n_matches_to_analyze = 25_000
 matches = pd.read_csv(CSV_FOLDERPATH + os.sep + "match_clean.csv", nrows=n_matches_to_analyze)
 matches = matches.iloc[:n_matches_to_analyze, 1:]
 
@@ -38,12 +40,12 @@ class Player:
             homeaway_goal_delta = match["homeaway_goal_delta"]
             winning_players_ids = set(match[columns_of_players_from_team(winning_team)])
             player_was_in_winning_team = self.player_id in winning_players_ids
-            reward_for_winning_in_game = math.log2(1 + abs(homeaway_goal_delta))
+            reward_for_winning_in_game = math.log2(1 + abs(homeaway_goal_delta)) + 1
             if self.number_of_games_played == 0:
                 self.rating = 100 if player_was_in_winning_team else 0
             else:
-                self.rating = (self.rating * self.number_of_games_played) +
-                    (reward_for_winning_in_game * (1 if )
+                self.rating = (self.rating * self.number_of_games_played) + \
+                    (reward_for_winning_in_game * (1 if player_was_in_winning_team else -1))
                 self.rating /= self.number_of_games_played + 1
         self.number_of_games_played += 1
 
@@ -52,8 +54,13 @@ class Team:
         self.players = players
 
     def get_rating(self):
-        players_scores
-        return sum([player.rating for player in self.players])
+        team_players_ratings = [player.rating for player in self.players]
+        team_rating = 0
+        team_rating += sum(team_players_ratings)
+        team_rating += max(team_players_ratings)
+        team_rating += min(team_players_ratings)
+        team_rating += pd.Series(team_players_ratings).median() * len(self.players)
+        return team_rating
 
 all_players = {}
 def analyse_match(match):
@@ -77,10 +84,23 @@ def calc_home_team_advantage_for_match(match):
     return home_team.get_rating() - away_team.get_rating()
 
 matches_to_mlable["home_team_advantage"] = matches.apply(calc_home_team_advantage_for_match, axis=1)
-matches_to_mlable.plot.scatter("home_team_advantage", "winning_team")
-plt.show()
+matches_to_mlable.to_csv("matches_to_mlable.csv")
 
+# matches_to_mlable.plot.scatter("home_team_advantage", "winning_team")
+# home_team_advantage_by_winning_status = matches_to_mlable.groupby("winning_team").mean()
+# plt.axhline(home_team_advantage_by_winning_status.iloc[0, 0], color="red")
+# plt.axhline(home_team_advantage_by_winning_status.iloc[1, 0], color="green")
+# plt.axhline(home_team_advantage_by_winning_status.iloc[2, 0], color="grey")
+# plt.show()
 
+from sklearn.ensemble import RandomForestClassifier
 
-
+clf = RandomForestClassifier()
+x = matches_to_mlable[["home_team_advantage"]]#.reshape(-1, 1)
+y = matches_to_mlable[["winning_team"]]#.reshape(-1, 1)
+X_train, X_test, y_train, y_test = train_test_split(x, y, test_size=0.2)
+clf.fit(X_train, y_train)
+y_pred = clf.predict(X_test)
+y_true = y_test
+print(classification_report(y_true, y_pred))
 print("helllooo")
